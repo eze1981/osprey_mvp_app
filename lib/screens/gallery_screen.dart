@@ -11,10 +11,10 @@ class GalleryScreen extends StatefulWidget {
   const GalleryScreen({super.key, required this.repository});
 
   @override
-  State<GalleryScreen> createState() => _GalleryScreenState();
+  State<GalleryScreen> createState() => GalleryScreenState();
 }
 
-class _GalleryScreenState extends State<GalleryScreen> {
+class GalleryScreenState extends State<GalleryScreen> {
   List<InspectionItem> _items = [];
   final _player = AudioPlayer();
   int? _playingId;
@@ -23,7 +23,7 @@ class _GalleryScreenState extends State<GalleryScreen> {
   @override
   void initState() {
     super.initState();
-    _loadItems();
+    reload();
     _player.positionStream.listen((p) {
       if (mounted) setState(() => _position = p);
     });
@@ -41,7 +41,7 @@ class _GalleryScreenState extends State<GalleryScreen> {
     super.dispose();
   }
 
-  Future<void> _loadItems() async {
+  Future<void> reload() async {
     final items = await widget.repository.getAllItems();
     if (mounted) setState(() => _items = items);
   }
@@ -80,7 +80,7 @@ class _GalleryScreenState extends State<GalleryScreen> {
                   style: TextStyle(color: Colors.white54, fontSize: 16)),
             )
           : RefreshIndicator(
-              onRefresh: _loadItems,
+              onRefresh: reload,
               child: ListView.builder(
                 itemCount: _items.length,
                 itemBuilder: (context, index) => _buildCard(_items[index]),

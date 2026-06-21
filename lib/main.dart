@@ -34,6 +34,7 @@ class AppShell extends StatefulWidget {
 
 class _AppShellState extends State<AppShell> {
   int _currentIndex = 0;
+  final _galleryKey = GlobalKey<GalleryScreenState>();
 
   @override
   Widget build(BuildContext context) {
@@ -42,12 +43,15 @@ class _AppShellState extends State<AppShell> {
         index: _currentIndex,
         children: [
           CaptureScreen(repository: repository),
-          GalleryScreen(repository: repository),
+          GalleryScreen(key: _galleryKey, repository: repository),
         ],
       ),
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _currentIndex,
-        onTap: (i) => setState(() => _currentIndex = i),
+        onTap: (i) {
+          setState(() => _currentIndex = i);
+          if (i == 1) _galleryKey.currentState?.reload();
+        },
         backgroundColor: Colors.grey.shade900,
         selectedItemColor: Colors.white,
         unselectedItemColor: Colors.white54,
