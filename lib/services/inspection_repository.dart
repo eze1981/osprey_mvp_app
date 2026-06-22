@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:isar_community/isar.dart';
 import 'package:path_provider/path_provider.dart';
 
+import 'package:osprey_mvp_app/models/inspection.dart';
 import 'package:osprey_mvp_app/models/inspection_item.dart';
 
 class InspectionRepository {
@@ -18,7 +19,7 @@ class InspectionRepository {
     await _audioDir.create(recursive: true);
 
     _isar = await Isar.open(
-      [InspectionItemSchema],
+      [InspectionSchema, InspectionItemSchema],
       directory: appDir.path,
     );
   }
@@ -26,7 +27,48 @@ class InspectionRepository {
   String get photosPath => _photosDir.path;
   String get audioPath => _audioDir.path;
 
-  Future<void> saveInspection({
+  // --- Inspection CRUD ---
+
+  Future<int> createInspection(String name) async {
+    final inspection = Inspection()
+      ..name = name
+      ..createdAt = DateTime.now().toUtc();
+    await _isar.writeTxn(() async {
+      await _isar.inspections.put(inspection);
+    });
+    return inspection.id;
+  }
+
+  Future<List<Inspection>> getAllInspections() async {
+    return _isar.inspections.where().sortByCreatedAtDesc().findAll();
+  }
+
+  Future<void> deleteInspection(int inspectionId) async {
+    // Delete all items belonging to this inspection
+    final items = await getItemsForInspection(inspectionId);
+    for (final item in items) {
+      await _deleteItemFiles(item);
+    }
+    await _isar.writeTxn(() async {
+      await _isar.inspectionItems
+          .filter()
+          .inspectionIdEqualTo(inspectionId)
+          .deleteAll();
+      await _isar.inspections.delete(inspectionId);
+    });
+  }
+
+  Future<int> getItemCount(int inspectionId) async {
+    return _isar.inspectionItems
+        .filter()
+        .inspectionIdEqualTo(inspectionId)
+        .count();
+  }
+
+  // --- InspectionItem CRUD ---
+
+  Future<int> saveInspection({
+    required int inspectionId,
     required String photoPath,
     required String audioPath,
   }) async {
@@ -37,15 +79,14 @@ class InspectionRepository {
     final photoFileName = '$timestamp.jpg';
     final audioFileName = '$timestamp.m4a';
 
-    // Copy files to documents directory
     final photoFile = File(photoPath);
     final audioFile = File(audioPath);
 
     await photoFile.copy('${_photosDir.path}/$photoFileName');
     await audioFile.copy('${_audioDir.path}/$audioFileName');
 
-    // Write Isar record only after files are on disk
     final item = InspectionItem()
+      ..inspectionId = inspectionId
       ..photoFileName = photoFileName
       ..audioFileName = audioFileName
       ..createdAt = now;
@@ -53,23 +94,47 @@ class InspectionRepository {
     await _isar.writeTxn(() async {
       await _isar.inspectionItems.put(item);
     });
+
+    return item.id;
   }
 
-  Future<List<InspectionItem>> getAllItems() async {
-    return _isar.inspectionItems.where().sortByCreatedAtDesc().findAll();
+  Future<List<InspectionItem>> getItemsForInspection(int inspectionId) async {
+    return _isar.inspectionItems
+        .filter()
+        .inspectionIdEqualTo(inspectionId)
+        .sortByCreatedAtDesc()
+        .findAll();
   }
 
-  Future<void> deleteInspection(int id) async {
+  Future<List<InspectionItem>> getItemsWithoutTranscript() async {
+    return _isar.inspectionItems.filter().transcriptIsNull().findAll();
+  }
+
+  Future<void> updateTranscript(int id, String transcript) async {
+    await _isar.writeTxn(() async {
+      final item = await _isar.inspectionItems.get(id);
+      if (item != null) {
+        item.transcript = transcript;
+        await _isar.inspectionItems.put(item);
+      }
+    });
+  }
+
+  Future<void> deleteItem(int id) async {
     final item = await _isar.inspectionItems.get(id);
     if (item != null) {
-      final photoFile = File('${_photosDir.path}/${item.photoFileName}');
-      final audioFile = File('${_audioDir.path}/${item.audioFileName}');
-      if (await photoFile.exists()) await photoFile.delete();
-      if (await audioFile.exists()) await audioFile.delete();
+      await _deleteItemFiles(item);
       await _isar.writeTxn(() async {
         await _isar.inspectionItems.delete(id);
       });
     }
+  }
+
+  Future<void> _deleteItemFiles(InspectionItem item) async {
+    final photoFile = File('${_photosDir.path}/${item.photoFileName}');
+    final audioFile = File('${_audioDir.path}/${item.audioFileName}');
+    if (await photoFile.exists()) await photoFile.delete();
+    if (await audioFile.exists()) await audioFile.delete();
   }
 
   String getPhotoPath(InspectionItem item) =>

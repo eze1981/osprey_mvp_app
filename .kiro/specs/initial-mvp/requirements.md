@@ -2,105 +2,172 @@
 
 ## Introduction
 
-Project Osprey is a local-first iOS voice-capture utility built with Flutter. It validates the voice-first field inspection concept by providing an eyes-free, high-durability interface for contractors to capture photos and pair them instantly with dedicated voice memos. The app operates entirely on-device with no backend, no API layer, and no cloud storage. Media metadata is managed via Isar Database and raw files are stored in the iOS application documents directory.
+Project Osprey is a local-first iOS voice-capture utility built with Flutter for commercial roofing contractors. It validates the voice-first field inspection concept by providing an eyes-free, high-durability interface to capture photos paired with voice memos that are automatically transcribed on-device. The app operates entirely on-device with no backend, no API layer, and no cloud storage. Media metadata is managed via Isar Database and raw files are stored in the iOS application documents directory.
 
 ## Glossary
 
-- **App**: The Project Osprey Flutter iOS application
-- **Capture_Screen**: The main unified interface dominated by a single action button for initiating the photo-then-voice workflow
-- **Gallery_Screen**: The scrollable vertical feed displaying all captured inspection items
-- **Inspection_Item**: A paired unit of one photo and one voice memo, linked by metadata
-- **Isar_Database**: The local on-device relational database used for persisting Inspection_Item metadata
+- **App**: The Project Osprey Flutter iOS application (Cupertino design)
+- **Capture_Screen**: The main interface showing a live camera preview with a capture button for initiating the photo-then-voice workflow
+- **Inspection_Screen**: The scrollable vertical feed displaying all captured inspection items with transcript previews
+- **Inspection_Detail_Screen**: Full-view screen showing photo, audio player with progress, and complete transcript
+- **Inspection_Item**: A paired unit of one photo, one voice memo, and an optional transcript, linked by metadata
+- **Isar_Database**: The local on-device database used for persisting Inspection_Item metadata
 - **Documents_Directory**: The native iOS application documents directory where raw media files (.jpg and .m4a) are stored
 - **Haptic_Feedback**: Native iOS haptic vibration patterns used to signal state transitions
+- **Transcription**: On-device speech-to-text conversion using iOS SFSpeechRecognizer
 
 ## Requirements
 
-### Requirement 1: Photo Capture Initiation
+### Requirement 1: Photo Capture with Live Preview
 
-**User Story:** As a contractor, I want to tap a single large button to capture a photo, so that I can quickly document field conditions without navigating complex menus.
+**User Story:** As a roofing contractor, I want to see a live camera preview and tap a single button to capture a photo, so that I can quickly document field conditions without navigating complex menus.
 
 #### Acceptance Criteria
 
-1. THE Capture_Screen SHALL display a single action button with a minimum contrast ratio of 4.5:1 against its background, occupying at least 40% of the screen width and positioned vertically centered within the middle 60% of the screen height.
-2. WHEN the action button is tapped, THE App SHALL activate the native iOS camera interface within 1 second.
-3. WHEN the user accepts a captured photo, THE App SHALL save the photo as a .jpg file to the Documents_Directory with a filename composed of a UTC timestamp in the format "yyyyMMdd_HHmmss" followed by a unique suffix.
-4. WHEN the user cancels the camera without taking a photo, THE App SHALL return to the Capture_Screen without creating an Inspection_Item and without writing any file to the Documents_Directory.
-5. IF saving the photo to the Documents_Directory fails, THEN THE App SHALL display an error message indicating the photo could not be saved and SHALL return to the Capture_Screen without creating an Inspection_Item.
+1. THE Capture_Screen SHALL display a full-screen live camera preview as the background.
+2. THE Capture_Screen SHALL display a capture button overlaid at the bottom center of the screen.
+3. WHEN the capture button is tapped, THE App SHALL take a photo inline (without launching a separate camera app) and immediately transition to audio recording.
+4. WHEN the user accepts a captured photo, THE App SHALL save the photo as a .jpg file to the Documents_Directory with a filename composed of a UTC timestamp in the format "yyyyMMdd_HHmmss_SSS".
+5. IF saving the photo fails, THEN THE App SHALL display an error message and return to the idle state.
+6. THE camera SHALL reinitialize when the app resumes from background.
 
 ### Requirement 2: Automatic Voice Memo Recording
 
-**User Story:** As a contractor, I want voice recording to start automatically after snapping a photo, so that I can describe what I see without extra taps.
+**User Story:** As a roofing contractor, I want voice recording to start automatically after snapping a photo, so that I can describe what I see without extra taps.
 
 #### Acceptance Criteria
 
-1. WHEN a photo is accepted from the camera, THE App SHALL begin recording audio from the native iOS microphone within 500 milliseconds of photo acceptance.
-2. WHILE recording is active, THE Capture_Screen SHALL display a visible recording indicator and a stop button; WHILE recording is inactive, THE Capture_Screen SHALL hide the recording indicator and stop button.
-3. WHEN the user taps the stop button, THE App SHALL end the recording and save the audio as an .m4a file to the Documents_Directory. IF the audio file fails to save, THEN THE App SHALL display an error message indicating the save failure and discard the incomplete Inspection_Item.
+1. WHEN a photo is captured, THE App SHALL begin recording audio from the native iOS microphone immediately after the photo is saved.
+2. WHILE recording is active, THE Capture_Screen SHALL display a visible recording indicator and a stop button.
+3. WHEN the user taps the stop button, THE App SHALL end the recording and save the audio as an .m4a file to the Documents_Directory.
 4. WHEN recording is stopped, THE App SHALL create a new Inspection_Item in the Isar_Database linking the photo file path, the audio file path, and a creation timestamp.
-5. IF microphone permission is not granted when a photo is accepted, THEN THE App SHALL prompt the user for microphone access and shall not create an Inspection_Item until permission is granted and recording completes.
-6. WHEN recording duration reaches 5 minutes, THE App SHALL automatically stop the recording and proceed with saving the audio file and creating the Inspection_Item.
-7. IF the App transitions to the background while recording is active, THEN THE App SHALL stop the recording and save the captured audio, then create the Inspection_Item with the audio recorded up to that point.
+5. IF microphone permission is not granted, THEN THE App SHALL display an error and not proceed with capture.
+6. WHEN recording duration reaches 5 minutes, THE App SHALL automatically stop the recording and save.
+7. IF the App transitions to the background while recording is active, THEN THE App SHALL stop and save the recording.
 
 ### Requirement 3: Haptic Feedback State Signals
 
-**User Story:** As a contractor, I want to feel distinct vibrations when the app changes state, so that I can operate the capture flow without looking at the screen.
+**User Story:** As a roofing contractor, I want to feel distinct vibrations when the app changes state, so that I can operate the capture flow without looking at the screen.
 
 #### Acceptance Criteria
 
-1. WHEN the native camera interface activates, THE App SHALL trigger an iOS haptic feedback pulse of medium intensity within 100 milliseconds of the state transition.
-2. WHEN audio recording begins, THE App SHALL trigger an iOS haptic feedback pulse of heavy intensity within 100 milliseconds of the state transition.
-3. WHEN the Inspection_Item is saved successfully, THE App SHALL trigger an iOS haptic feedback success notification within 100 milliseconds of save completion.
-4. IF the Inspection_Item save fails, THEN THE App SHALL trigger an iOS haptic feedback error notification to indicate the failure.
-5. IF the device haptic engine is unavailable, THEN THE App SHALL continue the capture flow without interruption and shall not display an error to the user.
+1. WHEN the capture button is tapped, THE App SHALL trigger a medium intensity haptic.
+2. WHEN audio recording begins, THE App SHALL trigger a heavy intensity haptic.
+3. WHEN the Inspection_Item is saved successfully, THE App SHALL trigger a success haptic.
+4. IF a save fails, THEN THE App SHALL trigger an error haptic.
+5. IF the device haptic engine is unavailable, THEN THE App SHALL continue without interruption.
 
-### Requirement 4: Inspection Gallery Feed
+### Requirement 4: On-Device Speech Transcription
 
-**User Story:** As a contractor, I want to scroll through my captured inspections in a vertical feed, so that I can review my work in chronological order.
-
-#### Acceptance Criteria
-
-1. THE Gallery_Screen SHALL display all Inspection_Items in a scrollable vertical list ordered by creation timestamp descending (newest first).
-2. THE Gallery_Screen SHALL display a square thumbnail of the captured photo for each Inspection_Item, rendered at 80×80 logical pixels.
-3. THE Gallery_Screen SHALL display the creation timestamp for each Inspection_Item formatted in the device locale's short date and time pattern (e.g., "MM/dd/yyyy HH:mm" for US locale).
-4. WHEN the Isar_Database confirms zero Inspection_Items exist, THE Gallery_Screen SHALL display an empty state message indicating no inspections have been captured.
-5. IF the photo file referenced by an Inspection_Item is missing or unreadable from the Documents_Directory, THEN THE Gallery_Screen SHALL display a placeholder image in place of the thumbnail for that Inspection_Item.
-
-### Requirement 5: Inline Audio Playback
-
-**User Story:** As a contractor, I want to play back a voice memo directly from the gallery feed, so that I can listen to my notes without leaving the review screen.
+**User Story:** As a roofing contractor, I want my voice memos automatically transcribed to text on my device, so that I can read my notes without playing audio.
 
 #### Acceptance Criteria
 
-1. THE Gallery_Screen SHALL display an inline audio playback card for each Inspection_Item containing a Play button, a Pause button, and an elapsed-time label showing the current playback position in mm:ss format.
-2. WHEN the Play button is tapped and no audio is currently playing, THE App SHALL begin audio playback of the associated .m4a voice memo from the beginning. WHEN the Play button is tapped while the same memo is paused, THE App SHALL resume playback from the paused position.
-3. WHEN the Play button is tapped on one Inspection_Item while another Inspection_Item is actively playing, THE App SHALL stop the currently playing item, reset that item's playback card to its initial state, and begin playback of the newly selected item.
-4. WHEN the Pause button is tapped during active playback, THE App SHALL pause audio playback at the current position. WHEN the Pause button is tapped while audio is not playing, THE App SHALL take no action.
-5. WHEN playback reaches the end of the audio file, THE App SHALL reset the playback card to its initial state with the Play button active and the elapsed-time label showing 00:00.
-6. IF the .m4a file associated with an Inspection_Item is missing or unreadable from the Documents_Directory, THEN THE App SHALL display an error indication on the playback card and disable the Play button for that item.
+1. WHEN an Inspection_Item is saved, THE App SHALL transcribe the audio file on-device using iOS SFSpeechRecognizer in the background.
+2. THE transcription SHALL run entirely on-device (requiresOnDeviceRecognition = true) with no network calls.
+3. THE transcript text SHALL be stored in the Inspection_Item record in the Isar_Database.
+4. THE transcription SHALL NOT block the UI — the user can continue capturing immediately.
+5. WHEN the App launches, it SHALL transcribe any items that do not yet have a transcript (retry pending items).
+6. IF transcription fails (permission denied, unavailable), THE App SHALL leave the transcript field null and continue without error.
 
-### Requirement 6: Local Data Persistence
+### Requirement 5: Inspection Feed
 
-**User Story:** As a contractor, I want my captured inspections to persist between app sessions, so that I do not lose work when I close the app.
-
-#### Acceptance Criteria
-
-1. THE Isar_Database SHALL persist all Inspection_Item records across App launches, including after iOS-initiated app termination, such that every record written before termination is retrievable on the next launch.
-2. THE App SHALL store each photo .jpg file and each audio .m4a file in the Documents_Directory with a unique filename derived from a UUID, and SHALL store the corresponding file path in the associated Inspection_Item record so that each media file is retrievable via its record.
-3. IF the Isar_Database fails to write an Inspection_Item record, THEN THE App SHALL display an error message indicating the record could not be saved, and SHALL retain the captured media files in the Documents_Directory.
-4. IF the Documents_Directory is inaccessible for file writing, THEN THE App SHALL display an error message indicating the media file could not be stored, and SHALL not create a partial Inspection_Item in the Isar_Database.
-5. IF any failure prevents completing the inspection capture workflow, THEN THE App SHALL display an error message identifying the failed operation (database write, file write, or insufficient storage) to the user.
-6. IF the device has insufficient storage space to write a media file or database record, THEN THE App SHALL display an error message indicating insufficient storage and SHALL not create a partial Inspection_Item in the Isar_Database.
-
-### Requirement 7: App Navigation
-
-**User Story:** As a contractor, I want to switch between the capture screen and the gallery, so that I can alternate between capturing and reviewing inspections.
+**User Story:** As a roofing contractor, I want to scroll through my captured inspection items, so that I can review my work in chronological order.
 
 #### Acceptance Criteria
 
-1. THE App SHALL provide a bottom navigation bar with two tabs: one for the Capture_Screen and one for the Gallery_Screen, each displaying an icon and a text label.
-2. WHEN the user taps the Capture_Screen tab, THE App SHALL display the Capture_Screen and visually indicate the Capture_Screen tab as active.
-3. WHEN the user taps the Gallery_Screen tab, THE App SHALL display the Gallery_Screen and visually indicate the Gallery_Screen tab as active.
-4. THE App SHALL launch with the Capture_Screen as the default active tab.
-5. WHILE the user is on any tab, THE App SHALL keep the bottom navigation bar visible.
-6. WHEN the user switches tabs, THE App SHALL preserve the state of the previously active screen so that returning to it restores its prior content.
+1. THE Inspection_Screen SHALL display all Inspection_Items in a scrollable list ordered by creation timestamp descending.
+2. Each item SHALL display a 64x64 thumbnail and a preview of the transcript text (first 2 lines).
+3. Items without a transcript SHALL display "Transcribing..." in italic.
+4. WHEN an item is tapped, THE App SHALL navigate to the Inspection_Detail_Screen.
+5. THE Inspection_Screen SHALL support pull-to-refresh to reload items.
+6. WHEN zero items exist, THE App SHALL display an empty state message.
+
+### Requirement 6: Inspection Detail View
+
+**User Story:** As a roofing contractor, I want to view the full details of an inspection item, so that I can see the photo, listen to the audio, and read the complete transcript.
+
+#### Acceptance Criteria
+
+1. THE Inspection_Detail_Screen SHALL display the full-size photo.
+2. THE Inspection_Detail_Screen SHALL display an audio player with play/pause, a progress bar, and elapsed/total time.
+3. THE Inspection_Detail_Screen SHALL display the complete transcript text (scrollable).
+4. IF the transcript is not yet available, THE screen SHALL display "Transcript not available yet".
+
+### Requirement 7: Delete Inspection Items
+
+**User Story:** As a roofing contractor, I want to delete inspection items I no longer need, using the familiar iOS swipe gesture.
+
+#### Acceptance Criteria
+
+1. WHEN the user swipes an item left on the Inspection_Screen, THE App SHALL reveal a red delete background.
+2. BEFORE deleting, THE App SHALL display a confirmation dialog.
+3. WHEN confirmed, THE App SHALL delete the Isar record and associated media files (photo and audio).
+4. THE deleted item SHALL animate out of the list.
+
+### Requirement 8: PDF Export
+
+**User Story:** As a roofing contractor, I want to export my inspection as a PDF report, so that I can share it with building owners or insurance adjusters.
+
+#### Acceptance Criteria
+
+1. THE Inspection_Screen SHALL display a share/export button in the navigation bar when items exist.
+2. WHEN the export button is tapped, THE App SHALL generate a PDF document containing all inspection items.
+3. THE PDF SHALL include: a title header, and for each item: timestamp, photo, and transcript text.
+4. WHILE the PDF is generating, THE App SHALL display a loading indicator.
+5. WHEN the PDF is ready, THE App SHALL present the iOS share sheet for the user to share/save the file.
+
+### Requirement 9: App Navigation
+
+**User Story:** As a roofing contractor, I want to switch between capture and inspection review with a tab bar.
+
+#### Acceptance Criteria
+
+1. THE App SHALL provide a bottom tab bar with two tabs: Capture and Inspection.
+2. THE App SHALL use Cupertino (iOS-native) design throughout.
+3. THE App SHALL launch with the Capture tab as the default.
+4. WHEN switching to the Inspection tab, THE App SHALL reload the items list.
+
+### Requirement 10: Local Data Persistence
+
+**User Story:** As a roofing contractor, I want my captured inspections to persist between app sessions.
+
+#### Acceptance Criteria
+
+1. THE Isar_Database SHALL persist all records across app launches.
+2. Media files SHALL be stored in the Documents_Directory with timestamp-based filenames (yyyyMMdd_HHmmss_SSS).
+3. An Inspection_Item SHALL only be written to Isar after both media files exist on disk.
+4. IF the Isar write fails, media files SHALL be retained on disk.
+5. IF file write fails, no Isar record SHALL be created.
+
+
+
+### Requirement 11: Demo UX Polish
+
+**User Story:** As a roofing contractor demoing the app to a building owner, I want clear visual feedback at every step so the app feels professional and self-explanatory.
+
+#### Acceptance Criteria
+
+1. THE Inspection_Screen SHALL display a count of captured items (e.g. "12 items") in the navigation bar area.
+2. WHILE recording audio on the Capture_Screen, THE App SHALL display an elapsed timer (mm:ss) that counts up in real-time.
+3. WHEN an Inspection_Item is saved successfully, THE Capture_Screen SHALL briefly display a "Saved ✓" confirmation overlay before returning to idle.
+4. WHEN the Capture_Screen is in idle state, THE App SHALL display a subtle "Tap to capture" label below the capture button to guide first-time users.
+5. THE PDF report header SHALL include the total number of items and the date range (earliest to latest item timestamp).
+
+
+
+### Requirement 12: Multiple Inspections
+
+**User Story:** As a roofing contractor, I want to organize my captures into separate inspections (one per job/site), so that I can keep reports for different buildings separate.
+
+#### Acceptance Criteria
+
+1. THE App SHALL support multiple inspections, each identified by a name and creation timestamp.
+2. THE App SHALL display an Inspections List showing all inspections ordered by creation date descending, with name, item count, and date.
+3. WHEN the user taps "New Inspection", THE App SHALL prompt for an inspection name and create a new inspection that becomes the active inspection.
+4. WHEN the user captures a photo+voice memo, THE App SHALL associate the Inspection_Item with the currently active inspection.
+5. WHEN the user taps an inspection in the list, THE App SHALL navigate to the Inspection Screen showing only items belonging to that inspection.
+6. THE PDF export SHALL generate a report for the currently viewed inspection only.
+7. THE Inspection tab SHALL show the Inspections List as its root, with navigation to individual inspections.
+8. IF no active inspection exists when the user tries to capture, THE App SHALL prompt the user to create one first.
+9. THE user SHALL be able to delete an entire inspection (including all its items and media files) via swipe-left.

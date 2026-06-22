@@ -6,6 +6,8 @@
 	<string>Osprey needs camera access to capture inspection photos.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Osprey needs microphone access to record voice memos.</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>Osprey uses on-device speech recognition to transcribe voice memos.</string>
 	<key>CADisableMinimumFrameDurationOnPhone</key>
 	<true/>
 	<key>CFBundleDevelopmentRegion</key>

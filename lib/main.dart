@@ -1,15 +1,34 @@
-import 'package:flutter/material.dart';
+import 'package:camera/camera.dart';
+import 'package:flutter/cupertino.dart';
 
 import 'package:osprey_mvp_app/screens/capture_screen.dart';
-import 'package:osprey_mvp_app/screens/gallery_screen.dart';
+import 'package:osprey_mvp_app/screens/inspections_list_screen.dart';
 import 'package:osprey_mvp_app/services/inspection_repository.dart';
+import 'package:osprey_mvp_app/services/transcription_service.dart';
 
 final repository = InspectionRepository();
+late List<CameraDescription> cameras;
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await repository.init();
+  final results = await Future.wait([
+    availableCameras(),
+    repository.init(),
+  ]);
+  cameras = results[0] as List<CameraDescription>;
   runApp(const OspreyApp());
+  _transcribePendingItems();
+}
+
+Future<void> _transcribePendingItems() async {
+  final items = await repository.getItemsWithoutTranscript();
+  for (final item in items) {
+    final path = repository.getAudioPath(item);
+    final transcript = await TranscriptionService.transcribe(path);
+    if (transcript != null && transcript.isNotEmpty) {
+      await repository.updateTranscript(item.id, transcript);
+    }
+  }
 }
 
 class OspreyApp extends StatelessWidget {
@@ -17,10 +36,10 @@ class OspreyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
+    return const CupertinoApp(
       title: 'Osprey',
-      theme: ThemeData.dark(),
-      home: const AppShell(),
+      theme: CupertinoThemeData(brightness: Brightness.dark),
+      home: AppShell(),
     );
   }
 }
@@ -34,32 +53,34 @@ class AppShell extends StatefulWidget {
 
 class _AppShellState extends State<AppShell> {
   int _currentIndex = 0;
-  final _galleryKey = GlobalKey<GalleryScreenState>();
+  int? _activeInspectionId;
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: IndexedStack(
-        index: _currentIndex,
-        children: [
-          CaptureScreen(repository: repository),
-          GalleryScreen(key: _galleryKey, repository: repository),
-        ],
-      ),
-      bottomNavigationBar: BottomNavigationBar(
+    return CupertinoTabScaffold(
+      tabBar: CupertinoTabBar(
         currentIndex: _currentIndex,
-        onTap: (i) {
-          setState(() => _currentIndex = i);
-          if (i == 1) _galleryKey.currentState?.reload();
-        },
-        backgroundColor: Colors.grey.shade900,
-        selectedItemColor: Colors.white,
-        unselectedItemColor: Colors.white54,
+        onTap: (i) => setState(() => _currentIndex = i),
         items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.camera_alt), label: 'Capture'),
-          BottomNavigationBarItem(icon: Icon(Icons.list), label: 'Gallery'),
+          BottomNavigationBarItem(
+              icon: Icon(CupertinoIcons.camera), label: 'Capture'),
+          BottomNavigationBarItem(
+              icon: Icon(CupertinoIcons.doc_text), label: 'Inspections'),
         ],
       ),
+      tabBuilder: (context, index) {
+        if (index == 0) {
+          return CaptureScreen(
+            repository: repository,
+            cameras: cameras,
+            activeInspectionId: _activeInspectionId,
+          );
+        }
+        return InspectionsListScreen(
+          repository: repository,
+          onSetActive: (id) => setState(() => _activeInspectionId = id),
+        );
+      },
     );
   }
 }

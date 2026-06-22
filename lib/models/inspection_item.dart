@@ -6,8 +6,12 @@ part 'inspection_item.g.dart';
 class InspectionItem {
   Id id = Isar.autoIncrement;
 
+  @Index()
+  late int inspectionId;
+
   late String photoFileName;
   late String audioFileName;
+  String? transcript;
 
   @Index()
   late DateTime createdAt;

@@ -2,84 +2,89 @@
 
 ## Overview
 
-Build the Project Osprey local-first iOS voice-capture inspection app. Implementation proceeds bottom-up: data layer, then services, then UI screens, then navigation shell. Files are created only when implementing actual functionality — no placeholder scaffolding.
+Build the Project Osprey local-first iOS voice-capture inspection app for commercial roofing contractors. Cupertino design, live camera preview, on-device transcription, PDF export. All tasks below are COMPLETE for the current implementation.
 
-## Tasks
+## Completed Tasks
 
-- [ ] 1. Set up project dependencies
-  - [ ] 1.1 Add required packages to pubspec.yaml
-    - Add `isar`, `isar_flutter_libs`, `path_provider` to dependencies
-    - Add `record`, `just_audio`, `image_picker` to dependencies
-    - Add `isar_generator`, `build_runner` to dev_dependencies
-    - Run `flutter pub get`
+- [x] 1. Set up project dependencies
+  - Added `isar_community`, `isar_community_flutter_libs`, `path_provider`
+  - Added `record`, `just_audio`, `camera`
+  - Added `pdf`, `share_plus`
+  - Added `isar_community_generator`, `build_runner` (dev)
 
-- [ ] 2. Implement data model and repository
-  - [ ] 2.1 Define InspectionItem Isar collection
-    - Create `lib/models/inspection_item.dart`
-    - Fields: `Id id`, `String photoFileName`, `String audioFileName`, `DateTime createdAt`
-    - Index on `createdAt` for descending sort
-    - Run `dart run build_runner build`
+- [x] 2. Implement data model and repository
+  - InspectionItem Isar collection: id, photoFileName, audioFileName, transcript?, createdAt (indexed)
+  - InspectionRepository: init, saveInspection (returns id), getAllItems, getItemsWithoutTranscript, updateTranscript, deleteInspection, getPhotoPath, getAudioPath
+  - Timestamp filenames: `yyyyMMdd_HHmmss_SSS`
 
-  - [ ] 2.2 Implement InspectionRepository
-    - Create `lib/services/inspection_repository.dart`
-    - `init()`: opens Isar, ensures `photos/` and `audio/` subdirectories exist
-    - `saveInspection()`: copies files to Documents Directory with timestamp filenames (`yyyyMMdd_HHmmss_SSS`), writes Isar record; no record if file write fails
-    - `getAllItems()`: returns items ordered by `createdAt` descending
-    - `deleteInspection(int id)`: removes Isar record and associated files
+- [x] 3. Implement HapticService
+  - Static methods: medium, heavy, success, error
+  - Fire-and-forget, exceptions swallowed
 
-- [ ] 3. Implement HapticService
-  - [ ] 3.1 Create HapticService
-    - Create `lib/services/haptic_service.dart`
-    - Static methods: `medium()`, `heavy()`, `success()`, `error()`
-    - All wrap `HapticFeedback` in try-catch (fire-and-forget)
+- [x] 4. Implement CaptureScreen with live camera preview
+  - State machine: initializing → idle → recording → saving → error
+  - Full-screen CameraPreview, cameras list passed from main
+  - Mic permission pre-checked at init
+  - Photo taken inline, then recording starts (shutter sound before recorder)
+  - 5-minute auto-stop, app lifecycle handling
 
-- [ ] 4. Implement CaptureScreen
-  - [ ] 4.1 Create CaptureScreen with state machine
-    - Create `lib/screens/capture_screen.dart`
-    - `enum CaptureState { idle, cameraActive, recording, saving, error }`
-    - Large centered action button (≥40% width, middle 60% height)
-    - Recording indicator + stop button (visible when recording)
-    - Error shown via SnackBar
+- [x] 5. Implement on-device transcription
+  - Platform channel `osprey/transcription` in AppDelegate.swift
+  - SFSpeechURLRecognitionRequest with requiresOnDeviceRecognition
+  - TranscriptionService Dart wrapper
+  - Fire-and-forget after save
+  - Pending transcription retry on app launch
 
-  - [ ] 4.2 Implement capture flow transitions
-    - Tap → haptic medium → launch camera
-    - Photo accepted → haptic heavy → start audio recording
-    - Photo cancelled → return to idle
-    - Stop → save audio → save to repository → haptic success → idle
-    - 5-minute auto-stop via Timer
-    - App lifecycle: auto-stop recording on background
+- [x] 6. Implement InspectionScreen (renamed from Gallery)
+  - 64x64 thumbnails, timestamp, transcript preview (2 lines)
+  - Tap → InspectionDetailScreen
+  - Swipe-left delete with Dismissible + confirmation dialog
+  - Pull-to-refresh
+  - Share button → PDF export with loading indicator
 
-- [ ] 5. Implement GalleryScreen
-  - [ ] 5.1 Create GalleryScreen with playback
-    - Create `lib/screens/gallery_screen.dart`
-    - Load items from repository on init
-    - ListView with 80x80 thumbnail, timestamp, play/pause + elapsed time
-    - Single AudioPlayer for exclusive playback
-    - Empty state message when zero items
-    - Placeholder for missing photos, disabled play for missing audio
+- [x] 7. Implement InspectionDetailScreen
+  - Full-size photo
+  - Audio player: play/pause, progress bar, elapsed/total time
+  - Complete transcript text
 
-- [ ] 6. Implement app shell and navigation
-  - [ ] 6.1 Wire up main.dart
-    - Replace demo code with BottomNavigationBar (Capture + Gallery tabs)
-    - IndexedStack for state preservation
-    - Initialize InspectionRepository in main() before runApp()
-    - Default to Capture tab
+- [x] 8. Implement PDF export
+  - PdfExportService: A4 multi-page, timestamp + photo + transcript per item
+  - Share via share_plus (Share.shareXFiles)
+  - Loading spinner during generation
 
-- [ ] 7. Add iOS permissions
-  - [ ] 7.1 Configure Info.plist
-    - Add `NSCameraUsageDescription`
-    - Add `NSMicrophoneUsageDescription`
+- [x] 9. Implement app shell and navigation
+  - CupertinoApp + CupertinoTabScaffold
+  - Two tabs: Capture (camera icon), Inspection (doc_text icon)
+  - Parallel init: availableCameras() + repository.init()
+  - Reload inspection list on tab switch
 
-- [ ] 8. Write tests
-  - [ ] 8.1 Widget tests
-    - Action button sizing, nav bar structure, empty gallery state
-  - [ ] 8.2 Unit tests
-    - HapticService method calls and exception handling
-    - Repository save/query logic
+- [x] 10. Configure iOS permissions
+  - NSCameraUsageDescription
+  - NSMicrophoneUsageDescription
+  - NSSpeechRecognitionUsageDescription
+
+## Pending Tasks
+
+- [ ] 11. Demo UX improvements (DONE)
+  - [x] 11.1 Item count in Inspection screen header
+  - [x] 11.2 Recording elapsed timer
+  - [x] 11.3 "Saved ✓" confirmation
+  - [x] 11.4 "Tap to capture" hint
+  - [x] 11.5 Improved PDF header with count and time range
+
+- [ ] 12. Multiple inspections support
+  - [ ] 12.1 Create Inspection Isar model (id, name, createdAt)
+  - [ ] 12.2 Add inspectionId field to InspectionItem, regenerate schema
+  - [ ] 12.3 Update InspectionRepository with inspection CRUD methods
+  - [ ] 12.4 Create InspectionsListScreen (list, create, delete inspections)
+  - [ ] 12.5 Update CaptureScreen to require active inspection ID
+  - [ ] 12.6 Update InspectionScreen to filter items by inspectionId
+  - [ ] 12.7 Update main.dart navigation (Inspections tab → list → items)
+  - [ ] 12.8 Handle "no active inspection" state on Capture tab
 
 ## Notes
 
-- Files are created only when their task is reached — no upfront scaffolding
-- Timestamp filename format: `yyyyMMdd_HHmmss_SSS` (UTC + milliseconds)
-- All tasks reference requirements from requirements.md
 - iOS-only, local-first, no network dependencies
+- Cupertino design throughout
+- Target user: commercial roofing contractors
+- Timestamp filename format: `yyyyMMdd_HHmmss_SSS` (UTC + milliseconds)
